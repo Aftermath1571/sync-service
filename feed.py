@@ -113,7 +113,22 @@ def mark_atr(symbol: str) -> tuple[float, float]:
             mark = _f(json.loads(r.read()).get("markPrice"))
     except Exception:
         pass
+    # 币安合约 API 在美国 IP 会返回 451，切 OKX
+    if mark <= 0:
+        try:
+            mark, atr2 = _mark_atr_okx(symbol)
+            if atr <= 0:
+                atr = atr2
+        except Exception:
+            pass
+    if atr <= 0:
+        try:
+            _, atr = _mark_atr_okx(symbol)
+        except Exception:
+            pass
     try:
+        if atr > 0:
+            raise StopIteration
         with _op().open(urllib.request.Request(
                 f"{FAPI}/fapi/v1/klines?symbol={symbol}&interval=1h&limit=40",
                 headers={"User-Agent": UA}), timeout=12) as r:
@@ -124,11 +139,58 @@ def mark_atr(symbol: str) -> tuple[float, float]:
                 h, l, pc = _f(kl[i][2]), _f(kl[i][3]), _f(kl[i - 1][4])
                 trs.append(max(h - l, abs(h - pc), abs(l - pc)))
             atr = sum(trs[-14:]) / 14
+    except StopIteration:
+        pass
     except Exception:
         pass
     _MARK[symbol] = (now, mark, atr)
     return mark, atr
 
+
+
+
+OKX = "https://www.okx.com"
+
+
+def _okx(path: str, timeout: float = 12.0):
+    req = urllib.request.Request(OKX + path, headers={"User-Agent": UA, "Accept": "application/json"})
+    with _op().open(req, timeout=timeout) as r:
+        return json.loads(r.read())
+
+
+def _okx_inst(symbol: str) -> str:
+    """BTCUSDT -> BTC-USDT"""
+    if symbol.endswith("USDT"):
+        return symbol[:-4] + "-USDT"
+    if symbol.endswith("USDC"):
+        return symbol[:-4] + "-USDC"
+    return symbol
+
+
+def _mark_atr_okx(symbol: str) -> tuple[float, float]:
+    inst = _okx_inst(symbol)
+    mark = atr = 0.0
+    try:
+        d = _okx(f"/api/v5/market/ticker?instId={inst}")
+        rows = (d or {}).get("data") or []
+        if rows:
+            mark = _f(rows[0].get("last"))
+    except Exception:
+        pass
+    try:
+        d = _okx(f"/api/v5/market/candles?instId={inst}&bar=1H&limit=40")
+        rows = (d or {}).get("data") or []
+        # OKX 返回倒序：[ts, o, h, l, c, vol, ...]
+        rows = list(reversed(rows))
+        if len(rows) > 15:
+            trs = []
+            for i in range(1, len(rows)):
+                h, l, pc = _f(rows[i][2]), _f(rows[i][3]), _f(rows[i - 1][4])
+                trs.append(max(h - l, abs(h - pc), abs(l - pc)))
+            atr = sum(trs[-14:]) / 14
+    except Exception:
+        pass
+    return mark, atr
 
 # ---------------- 动作映射 ----------------
 ACTION = {
@@ -199,6 +261,11 @@ def implied_positions(orders: list[dict], with_levels: bool = True) -> list[dict
             direction = 1 if side == "LONG" else -1
             tq = sum(q for q, _ in a["opens"])
             avg = (sum(q * p for q, p in a["opens"]) / tq) if tq > 0 else 0.0
+            # 拿不到行情（地区封锁）时，用最后成交价当现价，用 1% 当波动率
+            if mark <= 0 and a["opens"]:
+                mark = a["opens"][-1][1]
+            if atr <= 0 and mark > 0:
+                atr = mark * 0.01
             row.update({"avg_price": avg, "mark": mark, "atr": atr,
                         "notional": net * mark if mark else 0.0})
             if avg and mark:
