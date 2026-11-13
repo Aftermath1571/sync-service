@@ -147,17 +147,23 @@ STATE = {"sent": {}, "last_check": 0, "last_error": None, "snapshot": [], "check
 def load_state() -> None:
     if STATE_FILE.is_file():
         try:
-            STATE.update(json.loads(STATE_FILE.read_text(encoding="utf-8")))
+            d = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            STATE["sent"] = d.get("sent") or {}
         except Exception:
             pass
 
 
 def save_state() -> None:
+    """只把去重表写盘：没有新单子时文件不变，git 就不会产生提交"""
     sent = STATE.get("sent", {})
     if len(sent) > 1000:
         items = sorted(sent.items(), key=lambda kv: kv[1] if isinstance(kv[1], (int, float)) else 0)
-        STATE["sent"] = dict(items[-1000:])
-    STATE_FILE.write_text(json.dumps(STATE, ensure_ascii=False, indent=2), encoding="utf-8")
+        sent = dict(items[-1000:])
+        STATE["sent"] = sent
+    STATE_FILE.write_text(
+        json.dumps({"sent": sent}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def load_events() -> list:
