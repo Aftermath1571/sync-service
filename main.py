@@ -119,6 +119,16 @@ def load_cfg() -> dict:
         cfg["pushplus_token"] = env["NOTIFY_ALT"]
     if env.get("QQ_MIN"):
         cfg["qq_min_notional"] = float(env["QQ_MIN"])
+    if env.get("MAIL_HOST"):
+        cfg["mail"]["host"] = env["MAIL_HOST"]
+    if env.get("MAIL_USER"):
+        cfg["mail"]["user"] = env["MAIL_USER"]
+    if env.get("MAIL_PASS"):
+        cfg["mail"]["pass"] = env["MAIL_PASS"]
+    if env.get("MAIL_TO"):
+        cfg["mail"]["to"] = env["MAIL_TO"]
+    if env.get("MAIL_PORT"):
+        cfg["mail"]["port"] = int(env["MAIL_PORT"])
     if env.get("NOTIFY_TOKEN"):
         cfg["admin_token"] = env["NOTIFY_TOKEN"]
     if env.get("LIVE") in ("1", "true", "True"):
