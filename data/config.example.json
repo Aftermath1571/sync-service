@@ -4,7 +4,7 @@
     { "id": "5289761558741350656", "alias": "交易员刺客" }
   ],
   "poll_seconds": 60,
-  "push_on": ["open"],
+  "push_on": ["open", "close"],
   "include_levels": true,
   "qq": {
     "type": "official",
