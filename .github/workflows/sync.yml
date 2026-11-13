@@ -3,6 +3,8 @@ name: Sync
 # 定时跑一次快照同步。名字刻意保持中性。
 
 on:
+  push:
+    branches: [main]
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
