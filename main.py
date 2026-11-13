@@ -45,7 +45,7 @@ DEFAULT_CFG = {
     "kols": [{"id": "5075281354358777856", "alias": "熬鹰资本"},
              {"id": "5289761558741350656", "alias": "交易员刺客"}],
     "poll_seconds": 60,
-    "push_on": ["open"],
+    "push_on": ["open", "close"],
     "include_levels": True,
     "qq": {"type": "official", "appid": "", "secret": "", "target": "", "kind": "group",
            "onebot_api": "", "onebot_token": "", "onebot_target": 0, "onebot_kind": "private"},
@@ -197,27 +197,63 @@ def build_subject(k: dict, ev: dict) -> str:
 
 
 def build_message(k: dict, ev: dict) -> str:
-    lines = [f"【Signal】{k.get('nickname') or k.get('alias') or k['id']}",
-             f"{ev['action']} {ev['symbol']} {ev['qty']:,.4f} @ {p(ev['price'])}",
-             f"价值 {ev['notional']:,.0f} U"]
-    imp = next((x for x in (k.get("implied") or []) if x["symbol"] == ev["symbol"]), None)
-    if imp:
+    """邮件正文：开仓给点位，平仓给盈亏"""
+    sym = ev["symbol"]
+    side = "多" if ev["action"] in ("开多", "平多") else "空"
+    mark, atr = 0.0, 0.0
+    try:
+        mark, atr = feed.mark_atr(sym)
+    except Exception:
+        pass
+    if mark <= 0:
+        mark = ev.get("price") or 0
+
+    lines = [
+        f"【{k.get('nickname') or k.get('alias') or k['id']}】",
+        f"{ev['action']}  {sym}",
+        f"数量 {ev['qty']:,.4f}    成交价 {p(ev['price'])}",
+        f"名义价值 {ev['notional']:,.0f} U",
+    ]
+
+    if ev.get("open"):
+        # ---- 开仓：点位 ----
+        avg = ev["price"]
         lines.append("")
-        lines.append(f"疑似仓位：{'多' if imp['side']=='LONG' else '空'} {imp['net_qty']:,.4f}")
-        if imp.get("avg_price"):
-            lines.append(f"均价 {p(imp['avg_price'])}  现价 {p(imp.get('mark'))}")
-        if imp.get("pnl_pct") is not None:
-            lines.append(f"浮动 {imp['pnl_pct']:+.2f}%")
-        if imp.get("stop"):
-            lines.append(f"止损* {p(imp['stop'])}")
-            lines.append(f"目标* {p(imp['tp1'])} / {p(imp['tp2'])} / {p(imp['tp3'])}")
-            lines.append("(* 1.5×ATR 推算，非本人设置)")
+        lines.append("— 持仓点位 —")
+        lines.append(f"开仓均价  {p(avg)}")
+        lines.append(f"当前价格  {p(mark)}")
+        if avg > 0 and mark > 0:
+            chg = (mark / avg - 1) * 100 * (1 if side == "多" else -1)
+            lines.append(f"浮动盈亏  {chg:+.2f}%")
+        if atr > 0 and avg > 0:
+            d = 1 if side == "多" else -1
+            stop = avg - d * atr * 1.5
+            risk = abs(avg - stop)
+            lines.append("")
+            lines.append(f"止损*     {p(stop)}")
+            lines.append(f"目标1*    {p(avg + d * risk)}")
+            lines.append(f"目标2*    {p(avg + d * risk * 2)}")
+            lines.append(f"目标3*    {p(avg + d * risk * 3)}")
+            lines.append(f"（ATR(1h)={p(atr)}，按 1.5×ATR 设止损，* 为系统推算非本人设置）")
+        lines.append("")
+        lines.append(f"方向：{side}   名义 {ev['notional']:,.0f} U")
+    else:
+        # ---- 平仓：已实现盈亏 ----
+        pnl = ev.get("pnl") or 0.0
+        lines.append("")
+        lines.append("— 平仓结果 —")
+        lines.append(f"平仓价    {p(ev['price'])}")
+        lines.append(f"已实现盈亏  {pnl:+,.2f} U")
+        if ev["notional"]:
+            lines.append(f"收益率    {pnl / ev['notional'] * 100:+.2f}%（按名义）")
+        lines.append("")
+        lines.append(f"方向：{side}（{ev['action']}）")
+
     lines.append("")
     lines.append(f"https://www.binance.com/zh-CN/copy-trading/lead-details/{k['id']}")
     return "\n".join(lines)
 
 
-# ---------------- 扫描 ----------------
 def scan_once(cfg: dict) -> int:
     new_events = 0
     snapshots = []
@@ -247,10 +283,7 @@ def scan_once(cfg: dict) -> int:
                 continue
             msg = build_message(snap, ev)
             # 通道选择：PushPlus 全发；QQ 官方机器人只发大额，省额度
-            chans = ["mail", "pushplus"]
-            qq_min = float(cfg.get("qq_min_notional") or 0)
-            if qq_min <= 0 or ev.get("notional", 0) >= qq_min:
-                chans.append("qq")
+            chans = ["mail"]
             try:
                 dispatch.send(cfg, msg, channels=chans, subject=build_subject(snap, ev))
             except Exception as e:
