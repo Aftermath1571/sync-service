@@ -133,21 +133,24 @@ def send_mail(cfg: dict, text: str) -> tuple[bool, str]:
 
 
 # ---------------- 统一入口 ----------------
-def send(cfg: dict, text: str) -> dict:
+def send(cfg: dict, text: str, channels: list[str] | None = None) -> dict:
+    """channels 可指定只发某些通道：["qq"] / ["pushplus"] / ["mail"]"""
     if cfg.get("dry_run", True):
         print("[dry] \n" + text + "\n" + "-" * 50)
         return {"dry_run": True}
 
+    want = channels if channels is not None else ["qq", "pushplus", "mail"]
     res = {}
     qq = cfg.get("qq") or {}
-    if (qq.get("type") or "").lower() == "official":
-        res["qq"] = send_qq_official(qq, text)
-    else:
-        res["qq"] = send_onebot(qq, text)
+    if "qq" in want:
+        if (qq.get("type") or "").lower() == "official":
+            res["qq"] = send_qq_official(qq, text)
+        else:
+            res["qq"] = send_onebot(qq, text)
 
-    if cfg.get("pushplus_token"):
+    if "pushplus" in want and cfg.get("pushplus_token"):
         res["pushplus"] = send_pushplus(cfg["pushplus_token"], text)
-    if (cfg.get("mail") or {}).get("host"):
+    if "mail" in want and (cfg.get("mail") or {}).get("host"):
         res["mail"] = send_mail(cfg["mail"], text)
 
     for k, (ok, msg) in res.items():
