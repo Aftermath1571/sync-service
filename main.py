@@ -190,6 +190,12 @@ def p(v, nd=4):
     return f"{v:.8f}"
 
 
+def build_subject(k: dict, ev: dict) -> str:
+    """邮件主题：中性 + 一眼能看出动作和币种"""
+    tag = {"开多": "L+", "开空": "S+", "平多": "L-", "平空": "S-"}.get(ev["action"], "?")
+    return f"[{tag}] {ev['symbol']} {ev['qty']:,.4f} @ {p(ev['price'])}"
+
+
 def build_message(k: dict, ev: dict) -> str:
     lines = [f"【Signal】{k.get('nickname') or k.get('alias') or k['id']}",
              f"{ev['action']} {ev['symbol']} {ev['qty']:,.4f} @ {p(ev['price'])}",
@@ -241,12 +247,12 @@ def scan_once(cfg: dict) -> int:
                 continue
             msg = build_message(snap, ev)
             # 通道选择：PushPlus 全发；QQ 官方机器人只发大额，省额度
-            chans = ["pushplus"]
+            chans = ["mail", "pushplus"]
             qq_min = float(cfg.get("qq_min_notional") or 0)
             if qq_min <= 0 or ev.get("notional", 0) >= qq_min:
                 chans.append("qq")
             try:
-                dispatch.send(cfg, msg, channels=chans)
+                dispatch.send(cfg, msg, channels=chans, subject=build_subject(snap, ev))
             except Exception as e:
                 print("[dispatch] error", e)
             STATE["sent"][key] = int(time.time())
@@ -432,7 +438,8 @@ def main():
         text = ("测试消息：GitHub Actions → 推送通道\n"
                 f"时间 {time.strftime('%Y-%m-%d %H:%M:%S')}\n"
                 "收到这条说明整条链路已通。")
-        dispatch.send(cfg, text, channels=["mail", "pushplus"])
+        dispatch.send(cfg, text, channels=["mail", "pushplus"],
+                      subject="Sync Test")
         print("[test] done")
         return
     if "--once" in _sys.argv:
