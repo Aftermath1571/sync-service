@@ -108,7 +108,7 @@ def send_pushplus(token: str, text: str) -> tuple[bool, str]:
     return 200 <= st < 300, f"HTTP {st} {body[:120]}"
 
 
-def send_mail(cfg: dict, text: str) -> tuple[bool, str]:
+def send_mail(cfg: dict, text: str, subject: str | None = None) -> tuple[bool, str]:
     host = cfg.get("host") or ""
     user = cfg.get("user") or ""
     pwd = cfg.get("pass") or ""
@@ -117,7 +117,7 @@ def send_mail(cfg: dict, text: str) -> tuple[bool, str]:
         return False, "配置不全"
     try:
         msg = MIMEText(text, "plain", "utf-8")
-        msg["Subject"] = "KOL 动作提醒"
+        msg["Subject"] = subject or "Sync Alert"
         msg["From"], msg["To"] = user, to
         port = int(cfg.get("port") or 465)
         if port == 465:
@@ -133,7 +133,8 @@ def send_mail(cfg: dict, text: str) -> tuple[bool, str]:
 
 
 # ---------------- 统一入口 ----------------
-def send(cfg: dict, text: str, channels: list[str] | None = None) -> dict:
+def send(cfg: dict, text: str, channels: list[str] | None = None,
+         subject: str | None = None) -> dict:
     """channels 可指定只发某些通道：["qq"] / ["pushplus"] / ["mail"]"""
     if cfg.get("dry_run", True):
         print("[dry] \n" + text + "\n" + "-" * 50)
@@ -151,7 +152,7 @@ def send(cfg: dict, text: str, channels: list[str] | None = None) -> dict:
     if "pushplus" in want and cfg.get("pushplus_token"):
         res["pushplus"] = send_pushplus(cfg["pushplus_token"], text)
     if "mail" in want and (cfg.get("mail") or {}).get("host"):
-        res["mail"] = send_mail(cfg["mail"], text)
+        res["mail"] = send_mail(cfg["mail"], text, subject)
 
     for k, (ok, msg) in res.items():
         print(f"[dispatch] {k}: {'OK' if ok else 'FAIL'} {msg}")
