@@ -1,0 +1,33 @@
+name: Ping
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: ping
+        env:
+          ID_LIST: ${{ secrets.ID_LIST }}
+          NOTIFY_TYPE: ${{ secrets.NOTIFY_TYPE }}
+          NOTIFY_APP: ${{ secrets.NOTIFY_APP }}
+          NOTIFY_SEC: ${{ secrets.NOTIFY_SEC }}
+          NOTIFY_DEST: ${{ secrets.NOTIFY_DEST }}
+          NOTIFY_KIND: ${{ secrets.NOTIFY_KIND }}
+          NOTIFY_TOKEN: ${{ secrets.NOTIFY_TOKEN }}
+          NOTIFY_ALT: ${{ secrets.NOTIFY_ALT }}
+          MAIL_HOST: ${{ secrets.MAIL_HOST }}
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          LIVE: "1"
+        run: python main.py --test
