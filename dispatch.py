@@ -115,21 +115,31 @@ def send_mail(cfg: dict, text: str, subject: str | None = None) -> tuple[bool, s
     to = cfg.get("to") or ""
     if not (host and user and pwd and to):
         return False, "配置不全"
-    try:
-        msg = MIMEText(text, "plain", "utf-8")
-        msg["Subject"] = subject or "Sync Alert"
-        msg["From"], msg["To"] = user, to
-        port = int(cfg.get("port") or 465)
-        if port == 465:
-            with smtplib.SMTP_SSL(host, port, context=ssl.create_default_context(), timeout=15) as s:
-                s.login(user, pwd); s.sendmail(user, [to], msg.as_string())
-        else:
-            with smtplib.SMTP(host, port, timeout=15) as s:
-                s.starttls(context=ssl.create_default_context())
-                s.login(user, pwd); s.sendmail(user, [to], msg.as_string())
-        return True, "已发送"
-    except Exception as e:
-        return False, f"{type(e).__name__}: {e}"
+    import time as _t
+
+    msg = MIMEText(text, "plain", "utf-8")
+    msg["Subject"] = subject or "Sync Alert"
+    msg["From"], msg["To"] = user, to
+    port = int(cfg.get("port") or 465)
+
+    last_err = ""
+    for attempt in range(3):                      # 最多试 3 次，QQ 有时会断连
+        try:
+            if port == 465:
+                with smtplib.SMTP_SSL(host, port, context=ssl.create_default_context(), timeout=25) as s:
+                    s.login(user, pwd)
+                    s.sendmail(user, [to], msg.as_string())
+            else:
+                with smtplib.SMTP(host, port, timeout=25) as s:
+                    s.starttls(context=ssl.create_default_context())
+                    s.login(user, pwd)
+                    s.sendmail(user, [to], msg.as_string())
+            return True, f"已发送（第 {attempt + 1} 次尝试）"
+        except Exception as e:
+            last_err = f"{type(e).__name__}: {e}"
+            if attempt < 2:
+                _t.sleep(5 * (attempt + 1))
+    return False, last_err
 
 
 # ---------------- 统一入口 ----------------
