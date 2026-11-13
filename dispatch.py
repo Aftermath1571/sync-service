@@ -123,22 +123,26 @@ def send_mail(cfg: dict, text: str, subject: str | None = None) -> tuple[bool, s
     port = int(cfg.get("port") or 465)
 
     last_err = ""
-    for attempt in range(3):                      # 最多试 3 次，QQ 有时会断连
-        try:
-            if port == 465:
-                with smtplib.SMTP_SSL(host, port, context=ssl.create_default_context(), timeout=25) as s:
-                    s.login(user, pwd)
-                    s.sendmail(user, [to], msg.as_string())
-            else:
-                with smtplib.SMTP(host, port, timeout=25) as s:
-                    s.starttls(context=ssl.create_default_context())
-                    s.login(user, pwd)
-                    s.sendmail(user, [to], msg.as_string())
-            return True, f"已发送（第 {attempt + 1} 次尝试）"
-        except Exception as e:
-            last_err = f"{type(e).__name__}: {e}"
-            if attempt < 2:
-                _t.sleep(5 * (attempt + 1))
+    # 先试 465(SSL)，不通再试 587(STARTTLS)；每种各试 2 次，退避 15s / 30s
+    plans = [(465, True), (587, False)] if port == 465 else [(port, port == 465)]
+    for round_i in range(2):
+        for p_port, use_ssl in plans:
+            try:
+                ctx = ssl.create_default_context()
+                if use_ssl:
+                    with smtplib.SMTP_SSL(host, p_port, context=ctx, timeout=30) as s_:
+                        s_.login(user, pwd)
+                        s_.sendmail(user, [to], msg.as_string())
+                else:
+                    with smtplib.SMTP(host, p_port, timeout=30) as s_:
+                        s_.starttls(context=ctx)
+                        s_.login(user, pwd)
+                        s_.sendmail(user, [to], msg.as_string())
+                return True, f"已发送（{p_port}）"
+            except Exception as e:
+                last_err = f"{p_port}: {type(e).__name__}: {e}"
+        if round_i == 0:
+            _t.sleep(15)
     return False, last_err
 
 
