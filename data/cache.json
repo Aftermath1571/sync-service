@@ -14,7 +14,7 @@
     "5289761558741350656:1794540243075": 1794587856,
     "5289761558741350656:1794590541082": 1794590681
   },
-  "last_check": 1794593724,
+  "last_check": 1794594079,
   "last_error": null,
   "snapshot": [
     {
@@ -22,7 +22,7 @@
       "alias": "",
       "ok": true,
       "error": null,
-      "updated": 1794593722,
+      "updated": 1794594077,
       "nickname": "熬鹰资本",
       "avatar": "https://public-1306379396.file.myqcloud.com/image/pgc/202412/e891a1e22f14b5223e15f43c4b195abc.png",
       "aum": 8557038.11264872,
@@ -154,7 +154,7 @@
       "alias": "",
       "ok": true,
       "error": null,
-      "updated": 1794593723,
+      "updated": 1794594078,
       "nickname": "交易员刺客",
       "avatar": "https://public.bnbstatic.com/image/pgc/202510/074978f16d5095b9d6a39a9b78924074.png",
       "aum": 96169.29853647,
@@ -281,5 +281,5 @@
       "implied": []
     }
   ],
-  "checks": 75
+  "checks": 76
 }
