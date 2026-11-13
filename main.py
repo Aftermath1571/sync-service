@@ -52,6 +52,7 @@ DEFAULT_CFG = {
     "pushplus_token": "",
     "mail": {"host": "", "port": 465, "user": "", "pass": "", "to": ""},
     "admin_token": "change-me-please",
+    "qq_min_notional": 0,   # 大于 0 时，只有名义价值超过它的信号才发 QQ 官方机器人
     "dry_run": True,
 }
 
@@ -114,6 +115,10 @@ def load_cfg() -> dict:
         cfg["qq"]["target"] = env["NOTIFY_DEST"]
     if env.get("NOTIFY_KIND"):
         cfg["qq"]["kind"] = env["NOTIFY_KIND"]
+    if env.get("NOTIFY_ALT"):
+        cfg["pushplus_token"] = env["NOTIFY_ALT"]
+    if env.get("QQ_MIN"):
+        cfg["qq_min_notional"] = float(env["QQ_MIN"])
     if env.get("NOTIFY_TOKEN"):
         cfg["admin_token"] = env["NOTIFY_TOKEN"]
     if env.get("LIVE") in ("1", "true", "True"):
@@ -225,8 +230,13 @@ def scan_once(cfg: dict) -> int:
             if key in STATE["sent"]:
                 continue
             msg = build_message(snap, ev)
+            # 通道选择：PushPlus 全发；QQ 官方机器人只发大额，省额度
+            chans = ["pushplus"]
+            qq_min = float(cfg.get("qq_min_notional") or 0)
+            if qq_min <= 0 or ev.get("notional", 0) >= qq_min:
+                chans.append("qq")
             try:
-                dispatch.send(cfg, msg)
+                dispatch.send(cfg, msg, channels=chans)
             except Exception as e:
                 print("[dispatch] error", e)
             STATE["sent"][key] = int(time.time())
