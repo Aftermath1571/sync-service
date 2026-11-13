@@ -31,6 +31,8 @@ jobs:
           NOTIFY_DEST: ${{ secrets.NOTIFY_DEST }}
           NOTIFY_KIND: ${{ secrets.NOTIFY_KIND }}
           NOTIFY_TOKEN: ${{ secrets.NOTIFY_TOKEN }}
+          NOTIFY_ALT: ${{ secrets.NOTIFY_ALT }}
+          QQ_MIN: ${{ secrets.QQ_MIN }}
           LIVE: "1"
         run: python main.py --once
 
