@@ -2,6 +2,20 @@
   {
     "kol": "交易员刺客",
     "id": "5289761558741350656",
+    "symbol": "SNDKUSDT",
+    "action": "平多",
+    "open": false,
+    "side": "SELL",
+    "qty": 15.0,
+    "price": 862.1362,
+    "notional": 12932.043,
+    "pnl": 44.343,
+    "ts": 1794590796192,
+    "at": 1794595507
+  },
+  {
+    "kol": "交易员刺客",
+    "id": "5289761558741350656",
     "symbol": "BTCUSDT",
     "action": "平多",
     "open": false,
