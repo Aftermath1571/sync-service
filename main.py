@@ -257,6 +257,7 @@ def build_message(k: dict, ev: dict) -> str:
 def scan_once(cfg: dict) -> int:
     new_events = 0
     snapshots = []
+    collected = []          # 本轮新动作，最后合成一封邮件发出去
     for item in cfg.get("kols", []):
         pid = str(item.get("id") or "").strip()
         if not pid:
@@ -281,17 +282,32 @@ def scan_once(cfg: dict) -> int:
             key = f"{pid}:{ev['ts']}"
             if key in STATE["sent"]:
                 continue
-            msg = build_message(snap, ev)
-            # 通道选择：PushPlus 全发；QQ 官方机器人只发大额，省额度
-            chans = ["mail"]
-            try:
-                dispatch.send(cfg, msg, channels=chans, subject=build_subject(snap, ev))
-            except Exception as e:
-                print("[dispatch] error", e)
             STATE["sent"][key] = int(time.time())
+            collected.append((snap, ev))
             EVENTS.insert(0, {"kol": snap.get("nickname"), "id": pid, **ev, "at": int(time.time())})
             new_events += 1
             time.sleep(0.4)
+
+    # ---- 统一发一封汇总邮件（避免 QQ SMTP 连发被断） ----
+    if collected:
+        collected.sort(key=lambda x: x[1]["ts"])
+        if len(collected) == 1:
+            k0, ev0 = collected[0]
+            body = build_message(k0, ev0)
+            subj = build_subject(k0, ev0)
+        else:
+            parts = [f"本轮新增 {len(collected)} 条动作", ""]
+            for i, (k0, ev0) in enumerate(collected, 1):
+                parts.append(f"——— {i}/{len(collected)} ———")
+                parts.append(build_message(k0, ev0))
+                parts.append("")
+            body = "\n".join(parts)
+            subj = f"[Sync] {len(collected)} 条新动作"
+        try:
+            dispatch.send(cfg, body, channels=["mail"], subject=subj)
+        except Exception as e:
+            print("[dispatch] error", e)
+        new_events = len(collected)
 
     with _lock:
         STATE["snapshot"] = snapshots
