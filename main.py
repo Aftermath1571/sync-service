@@ -282,8 +282,7 @@ def scan_once(cfg: dict) -> int:
             key = f"{pid}:{ev['ts']}"
             if key in STATE["sent"]:
                 continue
-            STATE["sent"][key] = int(time.time())
-            collected.append((snap, ev))
+            collected.append((snap, ev, key))     # key 等发送成功后再标记
             EVENTS.insert(0, {"kol": snap.get("nickname"), "id": pid, **ev, "at": int(time.time())})
             new_events += 1
             time.sleep(0.4)
@@ -292,22 +291,30 @@ def scan_once(cfg: dict) -> int:
     if collected:
         collected.sort(key=lambda x: x[1]["ts"])
         if len(collected) == 1:
-            k0, ev0 = collected[0]
+            k0, ev0, _k = collected[0]
             body = build_message(k0, ev0)
             subj = build_subject(k0, ev0)
         else:
             parts = [f"本轮新增 {len(collected)} 条动作", ""]
-            for i, (k0, ev0) in enumerate(collected, 1):
+            for i, (k0, ev0, _k2) in enumerate(collected, 1):
                 parts.append(f"——— {i}/{len(collected)} ———")
                 parts.append(build_message(k0, ev0))
                 parts.append("")
             body = "\n".join(parts)
             subj = f"[Sync] {len(collected)} 条新动作"
+        ok_send = False
         try:
-            dispatch.send(cfg, body, channels=["mail"], subject=subj)
+            res = dispatch.send(cfg, body, channels=["mail"], subject=subj)
+            ok_send = any(v[0] for v in res.values() if isinstance(v, tuple))
         except Exception as e:
             print("[dispatch] error", e)
-        new_events = len(collected)
+        if ok_send:
+            for _k3 in collected:
+                STATE["sent"][_k3[2]] = int(time.time())
+            new_events = len(collected)
+        else:
+            print("[dispatch] 发送失败，本轮不标记，下一轮重试")
+            new_events = 0
 
     with _lock:
         STATE["snapshot"] = snapshots
