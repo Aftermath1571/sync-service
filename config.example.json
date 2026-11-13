@@ -1,0 +1,32 @@
+{
+  "_说明": "复制为 data/config.json（或设环境变量），dry_run=false 才会真发消息",
+
+  "kols": [
+    { "id": "5075281354358777856", "alias": "熬鹰资本" },
+    { "id": "5289761558741350656", "alias": "交易员刺客" }
+  ],
+
+  "poll_seconds": 60,
+  "push_on": ["open"],
+  "include_levels": true,
+
+  "qq": {
+    "_说明": "type=official 用官方机器人；type=onebot 用 NapCatQQ 等自建协议端",
+    "type": "official",
+    "appid": "",
+    "secret": "",
+    "target": "",
+    "kind": "group",
+
+    "onebot_api": "http://127.0.0.1:3000",
+    "onebot_token": "",
+    "onebot_target": 0,
+    "onebot_kind": "private"
+  },
+
+  "pushplus_token": "",
+  "mail": { "host": "", "port": 465, "user": "", "pass": "", "to": "" },
+
+  "admin_token": "change-me-please",
+  "dry_run": true
+}
