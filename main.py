@@ -426,6 +426,15 @@ class H(BaseHTTPRequestHandler):
 def main():
     load_state()
     import sys as _sys
+    if "--test" in _sys.argv:
+        cfg = load_cfg()
+        cfg["dry_run"] = False
+        text = ("测试消息：GitHub Actions → 推送通道\n"
+                f"时间 {time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                "收到这条说明整条链路已通。")
+        dispatch.send(cfg, text, channels=["mail", "pushplus"])
+        print("[test] done")
+        return
     if "--once" in _sys.argv:
         cfg = load_cfg()
         n = scan_once(cfg)
