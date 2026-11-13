@@ -1,0 +1,41 @@
+name: Sync
+
+# 定时跑一次快照同步。名字刻意保持中性。
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: run
+        env:
+          ID_LIST: ${{ secrets.ID_LIST }}
+          NOTIFY_TYPE: ${{ secrets.NOTIFY_TYPE }}
+          NOTIFY_APP: ${{ secrets.NOTIFY_APP }}
+          NOTIFY_SEC: ${{ secrets.NOTIFY_SEC }}
+          NOTIFY_DEST: ${{ secrets.NOTIFY_DEST }}
+          NOTIFY_KIND: ${{ secrets.NOTIFY_KIND }}
+          NOTIFY_TOKEN: ${{ secrets.NOTIFY_TOKEN }}
+          LIVE: "1"
+        run: python main.py --once
+
+      - name: save
+        run: |
+          git config user.name  "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/cache.json data/log.json 2>/dev/null || true
+          git commit -m "update" || echo "no change"
+          git push || echo "skip"
